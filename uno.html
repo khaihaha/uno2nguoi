@@ -1,0 +1,1757 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>UNO Trực Tuyến - Chơi Cùng Bạn Bè</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Font Inter & Fredoka cho phong cách game sôi động -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@600;700&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <!-- Tone.js cho hiệu ứng âm thanh sinh động -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"></script>
+
+    <style>
+        :root {
+            --uno-red: #ef4444;
+            --uno-blue: #3b82f6;
+            --uno-green: #22c55e;
+            --uno-yellow: #eab308;
+            --uno-dark: #1e293b;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background: radial-gradient(circle at center, #1e1b4b 0%, #0f172a 70%, #020617 100%);
+            color: #f8fafc;
+            overflow: hidden;
+            user-select: none;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        .font-game {
+            font-family: 'Fredoka', sans-serif;
+        }
+
+        /* Hiệu ứng lá bài UNO */
+        .uno-card {
+            position: relative;
+            border-radius: 0.85rem;
+            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.45), inset 0 0 0 3px #ffffff;
+            transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.25s ease, filter 0.2s ease;
+            cursor: pointer;
+            overflow: hidden;
+            flex-shrink: 0;
+        }
+
+        .uno-card-oval {
+            position: absolute;
+            top: 12%;
+            left: 8%;
+            right: 8%;
+            bottom: 12%;
+            background: #ffffff;
+            border-radius: 50%;
+            transform: rotate(-22deg);
+            box-shadow: inset 0 2px 6px rgba(0, 0, 0, 0.2);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .uno-card-inner-text {
+            transform: rotate(22deg);
+            font-family: 'Fredoka', sans-serif;
+            font-weight: 700;
+            text-shadow: 2px 2px 0px rgba(0, 0, 0, 0.25);
+        }
+
+        /* Màu sắc lá bài */
+        .card-red { background: linear-gradient(135deg, #f87171 0%, #dc2626 100%); color: #dc2626; }
+        .card-blue { background: linear-gradient(135deg, #60a5fa 0%, #2563eb 100%); color: #2563eb; }
+        .card-green { background: linear-gradient(135deg, #4ade80 0%, #16a34a 100%); color: #16a34a; }
+        .card-yellow { background: linear-gradient(135deg, #facc15 0%, #ca8a04 100%); color: #ca8a04; }
+        .card-wild {
+            background: conic-gradient(from 45deg, #ef4444 0deg 90deg, #3b82f6 90deg 180deg, #eab308 180deg 270deg, #22c55e 270deg 360deg);
+            color: #1e293b;
+        }
+
+        /* Mặt sau lá bài */
+        .card-back {
+            background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+            box-shadow: 0 6px 14px rgba(0, 0, 0, 0.5), inset 0 0 0 3px #ffffff;
+        }
+        .card-back .uno-card-oval {
+            background: linear-gradient(135deg, #ef4444 0%, #b91c1c 100%);
+        }
+
+        /* Hiệu ứng bài trên tay người chơi */
+        .hand-card-playable:hover {
+            transform: translateY(-22px) scale(1.08) !important;
+            z-index: 40 !important;
+            box-shadow: 0 16px 28px rgba(250, 204, 21, 0.45), inset 0 0 0 3px #fef08a;
+        }
+
+        .hand-card-unplayable {
+            filter: brightness(0.65) saturate(0.8);
+            cursor: not-allowed;
+        }
+
+        /* Vòng xoay chiều đánh bài */
+        @keyframes spinClockwise {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+        @keyframes spinCounterClockwise {
+            from { transform: rotate(360deg); }
+            to { transform: rotate(0deg); }
+        }
+
+        .direction-cw {
+            animation: spinClockwise 12s linear infinite;
+        }
+        .direction-ccw {
+            animation: spinCounterClockwise 12s linear infinite;
+        }
+
+        /* Hiệu ứng lá bài mới đánh ra */
+        @keyframes cardDrop {
+            0% { transform: scale(1.4) rotate(25deg); opacity: 0.4; }
+            100% { transform: scale(1) rotate(var(--rot, 0deg)); opacity: 1; }
+        }
+        .animate-card-drop {
+            animation: cardDrop 0.35s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+        }
+
+        /* Hiệu ứng Emoji bay lên */
+        @keyframes floatUpEmoji {
+            0% { transform: translateY(0) scale(0.5); opacity: 0; }
+            20% { transform: translateY(-20px) scale(1.2); opacity: 1; }
+            80% { transform: translateY(-90px) scale(1); opacity: 1; }
+            100% { transform: translateY(-130px) scale(0.8); opacity: 0; }
+        }
+        .emoji-float {
+            animation: floatUpEmoji 2.4s ease-out forwards;
+            pointer-events: none;
+        }
+
+        /* Hiệu ứng rung nút UNO */
+        @keyframes pulseGlow {
+            0%, 100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7); }
+            50% { transform: scale(1.08); box-shadow: 0 0 25px 8px rgba(239, 68, 68, 0.5); }
+        }
+        .uno-btn-pulse {
+            animation: pulseGlow 1.2s infinite;
+        }
+
+        /* Custom scrollbar cho khung chat */
+        ::-webkit-scrollbar {
+            width: 5px;
+            height: 5px;
+        }
+        ::-webkit-scrollbar-track {
+            background: rgba(15, 23, 42, 0.4);
+        }
+        ::-webkit-scrollbar-thumb {
+            background: rgba(148, 163, 184, 0.4);
+            border-radius: 9999px;
+        }
+    </style>
+</head>
+<body class="h-screen w-screen flex flex-col justify-between relative">
+
+    <!-- Thông báo Toast (thay thế hoàn toàn alert/confirm) -->
+    <div id="toast-container" class="fixed top-4 left-1/2 -translate-x-1/2 z-[100] flex flex-col items-center gap-2 pointer-events-none w-full max-w-md px-4"></div>
+
+    <!-- Container chứa Emoji bay trên màn hình -->
+    <div id="emoji-overlay" class="fixed inset-0 pointer-events-none z-50 overflow-hidden"></div>
+
+    <!-- ==================== MÀN HÌNH 1: SẢNH CHÍNH (LOBBY ENTRY) ==================== -->
+    <div id="screen-home" class="h-full w-full flex flex-col items-center justify-center p-4 relative z-10 overflow-y-auto">
+        <!-- Trang trí nền -->
+        <div class="absolute inset-0 overflow-hidden pointer-events-none opacity-20">
+            <div class="w-72 h-72 rounded-full bg-red-500 blur-3xl absolute -top-10 -left-10"></div>
+            <div class="w-80 h-80 rounded-full bg-blue-500 blur-3xl absolute top-1/3 -right-16"></div>
+            <div class="w-72 h-72 rounded-full bg-yellow-400 blur-3xl absolute -bottom-12 left-1/4"></div>
+        </div>
+
+        <div class="w-full max-w-md bg-slate-900/85 backdrop-blur-xl border border-slate-700/70 rounded-3xl p-6 sm:p-8 shadow-2xl relative z-10">
+            <!-- Logo UNO -->
+            <div class="flex flex-col items-center mb-6">
+                <div class="relative inline-flex items-center justify-center px-7 py-3 rounded-3xl bg-gradient-to-br from-red-500 via-red-600 to-rose-700 border-4 border-white shadow-xl transform -rotate-3 mb-3">
+                    <span class="font-game text-5xl sm:text-6xl font-bold tracking-wider text-yellow-300 drop-shadow-[0_4px_0_rgba(0,0,0,0.6)]">UNO</span>
+                </div>
+                <h1 class="text-xl sm:text-2xl font-extrabold text-white tracking-tight text-center">Đấu Trường Bài Trực Tuyến</h1>
+                <p class="text-slate-400 text-sm text-center mt-1">Kết nối bạn bè • Thời gian thực • 2 - 6 người chơi</p>
+            </div>
+
+            <!-- Trạng thái kết nối -->
+            <div id="auth-status" class="flex items-center justify-center gap-2 text-xs text-amber-400 bg-amber-500/10 border border-amber-500/20 rounded-xl py-2 px-3 mb-5">
+                <span class="w-2 h-2 rounded-full bg-amber-400 animate-ping"></span>
+                <span>Đang kết nối máy chủ trò chơi...</span>
+            </div>
+
+            <!-- Nhập tên hiển thị -->
+            <div class="mb-5">
+                <label for="player-name-input" class="block text-xs font-semibold uppercase tracking-wider text-slate-300 mb-2">Tên hiển thị của bạn</label>
+                <div class="relative">
+                    <input type="text" id="player-name-input" maxlength="16" placeholder="Nhập biệt danh (VD: Minh Anh)..."
+                        class="w-full bg-slate-800/90 border border-slate-600 focus:border-yellow-400 focus:ring-2 focus:ring-yellow-400/30 rounded-2xl px-4 py-3.5 text-white placeholder-slate-400 font-medium outline-none transition">
+                    <button id="btn-random-name" type="button" title="Tên ngẫu nhiên"
+                        class="absolute right-2.5 top-1/2 -translate-y-1/2 p-2 text-slate-400 hover:text-yellow-400 transition rounded-xl hover:bg-slate-700/60">
+                        🎲
+                    </button>
+                </div>
+            </div>
+
+            <!-- Tạo phòng mới -->
+            <button id="btn-create-room" disabled
+                class="w-full py-3.5 px-5 rounded-2xl font-bold text-base sm:text-lg bg-gradient-to-r from-emerald-500 to-green-600 hover:from-emerald-400 hover:to-green-500 disabled:opacity-50 disabled:cursor-not-allowed text-white shadow-lg shadow-emerald-600/30 transition transform active:scale-95 flex items-center justify-center gap-2 mb-4">
+                <span>✨ Tạo Phòng Mới</span>
+            </button>
+
+            <div class="relative flex py-2 items-center mb-4">
+                <div class="flex-grow border-t border-slate-700"></div>
+                <span class="flex-shrink mx-3 text-xs font-semibold uppercase text-slate-400">Hoặc tham gia phòng</span>
+                <div class="flex-grow border-t border-slate-700"></div>
+            </div>
+
+            <!-- Nhập mã phòng để tham gia -->
+            <div class="flex gap-2">
+                <input type="text" id="room-code-input" maxlength="6" placeholder="MÃ PHÒNG"
+                    class="w-1/2 bg-slate-800/90 border border-slate-600 focus:border-blue-400 focus:ring-2 focus:ring-blue-400/30 rounded-2xl px-4 py-3 text-center font-game text-lg tracking-widest uppercase text-white placeholder-slate-500 outline-none transition">
+                <button id="btn-join-room" disabled
+                    class="w-1/2 py-3 px-4 rounded-2xl font-bold text-base bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-400 hover:to-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed text-white shadow-lg shadow-blue-600/30 transition transform active:scale-95">
+                    Vào Phòng 🚀
+                </button>
+            </div>
+        </div>
+
+        <!-- Nút hướng dẫn luật chơi -->
+        <button id="btn-open-rules" class="mt-5 text-sm text-slate-300 hover:text-yellow-300 flex items-center gap-1.5 bg-slate-800/60 hover:bg-slate-800 px-4 py-2 rounded-full border border-slate-700/70 transition">
+            <span>📖 Xem luật chơi UNO nhanh</span>
+        </button>
+    </div>
+
+    <!-- ==================== MÀN HÌNH 2: PHÒNG CHỜ (WAITING ROOM) ==================== -->
+    <div id="screen-waiting" class="hidden h-full w-full flex flex-col items-center justify-center p-4 relative z-10 overflow-y-auto">
+        <div class="w-full max-w-lg bg-slate-900/90 backdrop-blur-xl border border-slate-700/80 rounded-3xl p-6 sm:p-8 shadow-2xl">
+            <div class="flex items-center justify-between mb-6">
+                <div>
+                    <span class="text-xs font-semibold uppercase tracking-wider text-slate-400">Phòng chờ trực tuyến</span>
+                    <h2 class="text-2xl font-extrabold text-white">Sẵn Sàng Thi Đấu</h2>
+                </div>
+                <button id="btn-leave-waiting" class="px-3.5 py-2 rounded-xl bg-rose-500/15 hover:bg-rose-500/25 text-rose-400 border border-rose-500/30 text-sm font-semibold transition">
+                    Rời phòng
+                </button>
+            </div>
+
+            <!-- Hộp hiển thị mã phòng & nút copy -->
+            <div class="bg-slate-800/90 border border-slate-700 rounded-2xl p-4 mb-6 flex items-center justify-between">
+                <div>
+                    <p class="text-xs text-slate-400 mb-0.5">Mã phòng mời bạn bè:</p>
+                    <p id="waiting-room-code" class="font-game text-3xl sm:text-4xl font-bold tracking-widest text-yellow-400">------</p>
+                </div>
+                <button id="btn-copy-code" class="px-4 py-3 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-sm flex items-center gap-2 shadow-md transition active:scale-95">
+                    <span>📋 Sao chép mã</span>
+                </button>
+            </div>
+
+            <!-- Danh sách người chơi -->
+            <div class="mb-6">
+                <div class="flex items-center justify-between mb-3">
+                    <span class="text-sm font-semibold text-slate-300">Người chơi trong phòng</span>
+                    <span id="waiting-player-count" class="text-xs font-bold px-2.5 py-1 rounded-full bg-blue-500/20 text-blue-300 border border-blue-500/30">1 / 6 người</span>
+                </div>
+                <div id="waiting-players-list" class="grid grid-cols-1 sm:grid-cols-2 gap-2.5 max-h-60 overflow-y-auto pr-1">
+                    <!-- Render danh sách người chơi tại đây -->
+                </div>
+            </div>
+
+            <!-- Nút bắt đầu cho chủ phòng hoặc thông báo chờ -->
+            <div id="host-controls" class="hidden">
+                <button id="btn-start-game"
+                    class="w-full py-4 rounded-2xl font-bold text-lg bg-gradient-to-r from-amber-500 via-orange-500 to-red-500 hover:from-amber-400 hover:to-red-400 text-white shadow-xl shadow-orange-600/30 transition transform active:scale-95">
+                    🔥 BẮT ĐẦU VÁN ĐẤU
+                </button>
+                <p class="text-center text-xs text-slate-400 mt-2">Cần tối thiểu 2 người chơi để bắt đầu</p>
+            </div>
+
+            <div id="guest-waiting-msg" class="hidden text-center py-3.5 px-4 rounded-2xl bg-slate-800/70 border border-slate-700/70 text-slate-300 text-sm">
+                ⏳ Đang chờ chủ phòng nhấn <strong>Bắt đầu ván đấu</strong>...
+            </div>
+        </div>
+    </div>
+
+    <!-- ==================== MÀN HÌNH 3: BÀN CHƠI UNO (GAME BOARD) ==================== -->
+    <div id="screen-game" class="hidden h-full w-full flex flex-col justify-between relative overflow-hidden">
+        
+        <!-- Thanh Header trên cùng -->
+        <header class="w-full px-3 sm:px-6 py-2.5 bg-slate-950/75 backdrop-blur-md border-b border-slate-800/80 flex items-center justify-between z-30">
+            <div class="flex items-center gap-2 sm:gap-3">
+                <div class="px-2.5 py-1 rounded-xl bg-red-600 border-2 border-white font-game font-bold text-yellow-300 text-sm sm:text-base transform -rotate-3">
+                    UNO
+                </div>
+                <div class="flex items-center gap-1.5 bg-slate-800/90 px-3 py-1.5 rounded-xl border border-slate-700">
+                    <span class="text-xs text-slate-400 hidden sm:inline">Phòng:</span>
+                    <span id="game-room-code" class="font-game font-bold text-yellow-400 text-sm tracking-wider">------</span>
+                    <button id="btn-game-copy" title="Sao chép mã phòng" class="text-xs text-slate-300 hover:text-white ml-1">📋</button>
+                </div>
+            </div>
+
+            <!-- Trạng thái lượt chơi & màu hiện tại -->
+            <div id="turn-banner" class="px-3.5 py-1.5 rounded-full bg-slate-800 border border-slate-600 text-xs sm:text-sm font-bold text-white flex items-center gap-2 shadow-md">
+                <span id="turn-indicator-dot" class="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                <span id="turn-banner-text">Đang tải...</span>
+            </div>
+
+            <!-- Nút tiện ích bên phải -->
+            <div class="flex items-center gap-2">
+                <button id="btn-toggle-sound" title="Bật/Tắt âm thanh" class="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-sm transition">
+                    🔊
+                </button>
+                <button id="btn-toggle-chat" class="relative p-2 sm:px-3 sm:py-2 rounded-xl bg-indigo-600/80 hover:bg-indigo-500 text-white border border-indigo-400/30 text-xs sm:text-sm font-semibold flex items-center gap-1.5 transition">
+                    <span>💬</span>
+                    <span class="hidden sm:inline">Chat</span>
+                    <span id="chat-unread-badge" class="hidden absolute -top-1 -right-1 w-3 h-3 rounded-full bg-red-500 border border-white"></span>
+                </button>
+                <button id="btn-leave-game" title="Thoát trận" class="p-2 rounded-xl bg-rose-500/20 hover:bg-rose-500/30 text-rose-400 border border-rose-500/30 text-xs sm:text-sm font-semibold transition">
+                    🚪
+                </button>
+            </div>
+        </header>
+
+        <!-- Khu vực đối thủ (Top & Sides) -->
+        <div id="opponents-area" class="w-full px-2 sm:px-6 pt-2 pb-1 flex flex-wrap items-center justify-center gap-2 sm:gap-4 z-20">
+            <!-- Các đối thủ sẽ được render tự động tại đây -->
+        </div>
+
+        <!-- Khu vực trung tâm bàn đấu: Chồng bài rút, Chồng bài đánh & Vòng chiều xoay -->
+        <main class="flex-1 flex flex-col items-center justify-center relative px-4 my-1 z-10">
+            
+            <!-- Vòng tròn hiển thị chiều đánh bài -->
+            <div class="relative flex items-center justify-center w-64 h-64 sm:w-80 sm:h-80">
+                <!-- Vòng SVG mũi tên xoay -->
+                <svg id="direction-ring" class="absolute inset-0 w-full h-full text-slate-500/35 direction-cw transition-colors duration-500" viewBox="0 0 200 200">
+                    <circle cx="100" cy="100" r="88" fill="none" stroke="currentColor" stroke-width="3" stroke-dasharray="18 12" />
+                    <!-- Mũi tên chỉ hướng -->
+                    <polygon points="100,4 110,18 90,18" fill="currentColor" />
+                    <polygon points="100,196 110,182 90,182" fill="currentColor" />
+                </svg>
+
+                <!-- Chỉ báo màu đang hiệu lực trên bàn -->
+                <div id="active-color-pill" class="absolute -top-3 px-3.5 py-1 rounded-full text-xs font-extrabold uppercase tracking-wider shadow-lg border border-white/40 bg-red-500 text-white transition-all duration-300">
+                    Màu: Đỏ
+                </div>
+
+                <!-- Hai chồng bài ở giữa -->
+                <div class="flex items-center gap-5 sm:gap-8 z-10">
+                    <!-- Chồng bài úp (Rút bài) -->
+                    <div class="flex flex-col items-center">
+                        <div id="draw-pile-btn" class="uno-card card-back w-20 h-28 sm:w-24 sm:h-36 flex items-center justify-center hover:scale-105 active:scale-95 transition group">
+                            <div class="uno-card-oval">
+                                <span class="uno-card-inner-text text-yellow-300 text-lg sm:text-xl tracking-wider">UNO</span>
+                            </div>
+                            <!-- Nhãn số lượng bài còn lại -->
+                            <span id="deck-count-badge" class="absolute bottom-1.5 right-1.5 bg-slate-950/80 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-md border border-slate-600">
+                                108
+                            </span>
+                        </div>
+                        <span id="draw-hint-text" class="text-[11px] font-semibold text-slate-400 mt-1.5">Rút bài</span>
+                    </div>
+
+                    <!-- Chồng bài ngửa (Bài vừa đánh) -->
+                    <div class="flex flex-col items-center">
+                        <div id="discard-pile-slot" class="w-20 h-28 sm:w-24 sm:h-36 flex items-center justify-center relative">
+                            <!-- Lá bài trên cùng render tại đây -->
+                        </div>
+                        <span id="direction-label" class="text-[11px] font-semibold text-slate-400 mt-1.5">↻ Thuận chiều</span>
+                    </div>
+                </div>
+
+                <!-- Nhãn phạt cộng dồn (+2 / +4) nếu có -->
+                <div id="pending-draw-badge" class="hidden absolute -bottom-3 px-4 py-1 rounded-full bg-amber-500 text-slate-950 font-extrabold text-xs sm:text-sm shadow-lg animate-bounce">
+                    Phạt rút: +2 lá!
+                </div>
+            </div>
+
+            <!-- Thanh hành động nhanh: Hô UNO! / Bắt UNO! / Bỏ lượt sau khi rút -->
+            <div class="flex items-center justify-center gap-3 mt-2 z-20 min-h-[44px]">
+                <!-- Nút hô UNO cho bản thân -->
+                <button id="btn-call-uno" class="hidden px-6 py-2.5 rounded-full bg-gradient-to-r from-red-500 via-amber-500 to-yellow-500 text-white font-game text-lg font-bold tracking-wider border-2 border-white shadow-xl uno-btn-pulse active:scale-95">
+                    🔥 HÔ UNO!
+                </button>
+
+                <!-- Nút Bắt lỗi UNO đối thủ -->
+                <button id="btn-catch-uno" class="hidden px-5 py-2 rounded-full bg-rose-600 hover:bg-rose-500 text-white font-bold text-xs sm:text-sm border-2 border-yellow-300 shadow-lg animate-bounce active:scale-95">
+                    🚨 BẮT LỖI UNO!
+                </button>
+
+                <!-- Nút Bỏ qua lượt (chỉ hiện sau khi đã rút 1 lá mà không đánh) -->
+                <button id="btn-pass-turn" class="hidden px-5 py-2 rounded-full bg-slate-700 hover:bg-slate-600 text-white font-semibold text-xs sm:text-sm border border-slate-500 shadow-md active:scale-95">
+                    ⏭️ Không đánh (Qua lượt)
+                </button>
+            </div>
+        </main>
+
+        <!-- Khu vực bài trên tay của người chơi (Bottom) -->
+        <footer class="w-full bg-gradient-to-t from-slate-950 via-slate-900/95 to-transparent pt-3 pb-3 sm:pb-5 px-2 sm:px-6 z-20 flex flex-col items-center">
+            <!-- Thanh biểu cảm nhanh -->
+            <div class="flex items-center gap-1.5 sm:gap-2 mb-2 bg-slate-900/80 border border-slate-700/70 px-3 py-1 rounded-full">
+                <span class="text-[11px] text-slate-400 mr-1 hidden sm:inline">Cảm xúc:</span>
+                <button class="emoji-trigger hover:scale-125 active:scale-95 transition text-base sm:text-lg" data-emoji="😂">😂</button>
+                <button class="emoji-trigger hover:scale-125 active:scale-95 transition text-base sm:text-lg" data-emoji="😱">😱</button>
+                <button class="emoji-trigger hover:scale-125 active:scale-95 transition text-base sm:text-lg" data-emoji="🔥">🔥</button>
+                <button class="emoji-trigger hover:scale-125 active:scale-95 transition text-base sm:text-lg" data-emoji="😭">😭</button>
+                <button class="emoji-trigger hover:scale-125 active:scale-95 transition text-base sm:text-lg" data-emoji="😎">😎</button>
+                <button class="emoji-trigger hover:scale-125 active:scale-95 transition text-base sm:text-lg" data-emoji="❤️">❤️</button>
+            </div>
+
+            <!-- Danh sách lá bài trên tay -->
+            <div id="my-hand-container" class="w-full max-w-5xl flex items-end justify-center overflow-x-auto py-3 px-4 min-h-[135px] sm:min-h-[165px]">
+                <!-- Các lá bài trên tay render ở đây -->
+            </div>
+        </footer>
+
+        <!-- ==================== KHUNG CHAT TRƯỢT BÊN PHẢI ==================== -->
+        <aside id="chat-drawer" class="fixed top-14 right-0 bottom-0 w-80 max-w-[88vw] bg-slate-900/95 backdrop-blur-xl border-l border-slate-700/80 shadow-2xl z-40 transform translate-x-full transition-transform duration-300 flex flex-col">
+            <div class="p-3.5 border-b border-slate-800 flex items-center justify-between">
+                <h3 class="font-bold text-sm text-white flex items-center gap-2">💬 Trò chuyện phòng đấu</h3>
+                <button id="btn-close-chat" class="text-slate-400 hover:text-white px-2 py-1 rounded-lg">✕</button>
+            </div>
+
+            <!-- Tin nhắn nhanh mẫu -->
+            <div class="p-2 border-b border-slate-800 flex flex-wrap gap-1.5 bg-slate-950/40">
+                <button class="quick-chat-btn text-[11px] bg-slate-800 hover:bg-slate-700 text-slate-200 px-2.5 py-1 rounded-full border border-slate-700">Nhanh lên nào! ⏰</button>
+                <button class="quick-chat-btn text-[11px] bg-slate-800 hover:bg-slate-700 text-slate-200 px-2.5 py-1 rounded-full border border-slate-700">Đừng +4 tui nha 🙏</button>
+                <button class="quick-chat-btn text-[11px] bg-slate-800 hover:bg-slate-700 text-slate-200 px-2.5 py-1 rounded-full border border-slate-700">Sắp thắng rồi! 😎</button>
+                <button class="quick-chat-btn text-[11px] bg-slate-800 hover:bg-slate-700 text-slate-200 px-2.5 py-1 rounded-full border border-slate-700">Hay quá! 👏</button>
+            </div>
+
+            <!-- Nội dung tin nhắn -->
+            <div id="chat-messages" class="flex-1 overflow-y-auto p-3 space-y-2.5 text-sm">
+                <!-- Tin nhắn render tại đây -->
+            </div>
+
+            <!-- Nhập tin nhắn -->
+            <form id="chat-form" class="p-2.5 border-t border-slate-800 flex gap-2">
+                <input type="text" id="chat-input" maxlength="80" placeholder="Nhập tin nhắn..."
+                    class="flex-1 bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-xs sm:text-sm text-white placeholder-slate-400 outline-none focus:border-indigo-500">
+                <button type="submit" class="px-3.5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-xs sm:text-sm">Gửi</button>
+            </form>
+        </aside>
+    </div>
+
+    <!-- ==================== MODAL CHỌN MÀU (KHI ĐÁNH WILD / +4) ==================== -->
+    <div id="modal-color-picker" class="hidden fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <div class="bg-slate-900 border border-slate-700 rounded-3xl p-6 max-w-sm w-full text-center shadow-2xl transform scale-100">
+            <h3 class="font-game text-2xl font-bold text-white mb-1">Chọn Màu Tiếp Theo</h3>
+            <p class="text-xs text-slate-400 mb-5">Bạn vừa đánh lá Đổi Màu! Hãy chọn màu cho lượt kế tiếp.</p>
+            <div class="grid grid-cols-2 gap-3.5">
+                <button data-pick-color="red" class="color-pick-btn h-24 rounded-2xl bg-gradient-to-br from-red-400 to-red-600 hover:scale-105 active:scale-95 transition border-4 border-white shadow-lg flex flex-col items-center justify-center font-bold text-white text-lg">
+                    <span>ĐỎ</span>
+                </button>
+                <button data-pick-color="blue" class="color-pick-btn h-24 rounded-2xl bg-gradient-to-br from-blue-400 to-blue-600 hover:scale-105 active:scale-95 transition border-4 border-white shadow-lg flex flex-col items-center justify-center font-bold text-white text-lg">
+                    <span>XANH DƯƠNG</span>
+                </button>
+                <button data-pick-color="green" class="color-pick-btn h-24 rounded-2xl bg-gradient-to-br from-emerald-400 to-green-600 hover:scale-105 active:scale-95 transition border-4 border-white shadow-lg flex flex-col items-center justify-center font-bold text-white text-lg">
+                    <span>XANH LÁ</span>
+                </button>
+                <button data-pick-color="yellow" class="color-pick-btn h-24 rounded-2xl bg-gradient-to-br from-yellow-300 to-amber-500 hover:scale-105 active:scale-95 transition border-4 border-white shadow-lg flex flex-col items-center justify-center font-bold text-slate-900 text-lg">
+                    <span>VÀNG</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ==================== MODAL KẾT THÚC VÁN ĐẤU (WINNER) ==================== -->
+    <div id="modal-winner" class="hidden fixed inset-0 bg-slate-950/85 backdrop-blur-md z-50 flex items-center justify-center p-4">
+        <div class="bg-gradient-to-b from-slate-800 to-slate-900 border-2 border-yellow-400/60 rounded-3xl p-7 max-w-md w-full text-center shadow-2xl relative overflow-hidden">
+            <div class="text-6xl mb-3 animate-bounce">🏆</div>
+            <span class="px-3 py-1 rounded-full bg-yellow-400/20 text-yellow-300 text-xs font-bold uppercase tracking-wider">Ván đấu kết thúc</span>
+            <h2 id="winner-name-display" class="font-game text-3xl sm:text-4xl font-bold text-white mt-2 mb-1">Người Chiến Thắng</h2>
+            <p class="text-slate-300 text-sm mb-6">Đã đánh hết toàn bộ bài trên tay và giành chiến thắng chung cuộc!</p>
+
+            <!-- Bảng tổng kết bài còn lại -->
+            <div id="winner-scoreboard" class="bg-slate-950/60 rounded-2xl p-3.5 mb-6 text-left space-y-2 max-h-48 overflow-y-auto border border-slate-700/70">
+                <!-- Danh sách xếp hạng -->
+            </div>
+
+            <div class="flex flex-col sm:flex-row gap-3">
+                <button id="btn-play-again" class="flex-1 py-3.5 px-5 rounded-2xl font-bold bg-gradient-to-r from-emerald-500 to-green-600 hover:from-emerald-400 hover:to-green-500 text-white shadow-lg transition active:scale-95">
+                    🔄 Chơi Lại
+                </button>
+                <button id="btn-winner-leave" class="py-3.5 px-5 rounded-2xl font-bold bg-slate-700 hover:bg-slate-600 text-slate-200 transition active:scale-95">
+                    Rời Phòng
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ==================== MODAL HƯỚNG DẪN LUẬT CHƠI ==================== -->
+    <div id="modal-rules" class="hidden fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <div class="bg-slate-900 border border-slate-700 rounded-3xl p-6 max-w-lg w-full max-h-[85vh] flex flex-col shadow-2xl">
+            <div class="flex items-center justify-between pb-3 border-b border-slate-800">
+                <h3 class="font-game text-xl font-bold text-yellow-400">📖 Luật Chơi UNO Chuẩn</h3>
+                <button id="btn-close-rules" class="text-slate-400 hover:text-white text-lg px-2">✕</button>
+            </div>
+            <div class="overflow-y-auto py-4 space-y-3 text-sm text-slate-300 leading-relaxed pr-1">
+                <p><strong class="text-white">1. Mục tiêu:</strong> Mỗi người được chia <strong>7 lá bài</strong>. Ai đánh hết bài trên tay đầu tiên sẽ giành chiến thắng.</p>
+                <p><strong class="text-white">2. Cách đánh bài:</strong> Đánh lá bài cùng <strong>Màu sắc</strong>, cùng <strong>Số/Ký hiệu</strong> với lá bài trên cùng ở giữa bàn, hoặc đánh lá <strong>Đổi Màu (Wild)</strong>.</p>
+                <p><strong class="text-white">3. Các lá chức năng:</strong></p>
+                <ul class="list-disc pl-5 space-y-1 text-slate-300">
+                    <li><span class="text-rose-400 font-bold">⊘ Cấm lượt (Skip):</span> Người kế tiếp bị mất lượt.</li>
+                    <li><span class="text-blue-400 font-bold">⇄ Đổi chiều (Reverse):</span> Đảo ngược vòng đánh (nếu chơi 2 người thì có tác dụng như Cấm lượt).</li>
+                    <li><span class="text-amber-400 font-bold">+2 Rút 2 lá:</span> Người kế tiếp phải rút 2 lá và mất lượt.</li>
+                    <li><span class="text-purple-400 font-bold">🌈 Đổi màu (Wild):</span> Được chọn màu mới cho vòng chơi.</li>
+                    <li><span class="text-emerald-400 font-bold">🌈+4 Đổi màu +4:</span> Chọn màu mới, đồng thời người kế tiếp phải rút 4 lá và mất lượt.</li>
+                </ul>
+                <p><strong class="text-white">4. Quy tắc Hô UNO & Bắt lỗi:</strong> Khi bạn còn <strong>2 lá</strong> (chuẩn bị đánh còn 1 lá) hoặc đang còn <strong>1 lá</strong>, hãy bấm nút <span class="text-yellow-400 font-bold">HÔ UNO!</span> Nếu quên hô, đối thủ có thể bấm <span class="text-rose-400 font-bold">BẮT LỖI UNO!</span> khiến bạn bị phạt rút thêm <strong>2 lá bài</strong>!</p>
+            </div>
+            <button id="btn-got-it-rules" class="mt-2 w-full py-3 rounded-2xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold transition">Đã hiểu, vào chơi thôi!</button>
+        </div>
+    </div>
+
+    <!-- ==================== FIREBASE & LOGIC GAME ==================== -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, getDoc, setDoc, updateDoc, deleteDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // --- CẤU HÌNH FIREBASE ---
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'uno-multiplayer-vn';
+        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : null;
+
+        let app, auth, db;
+        let currentUser = null;
+        let currentRoomCode = null;
+        let roomUnsubscribe = null;
+        let roomState = null;
+
+        // Trạng thái cục bộ của người chơi
+        let hasDrawnThisTurn = false;
+        let pendingWildCardIndex = null;
+        let soundEnabled = true;
+        let lastChatCount = 0;
+        let lastEmojiTimestamp = 0;
+        let lastTopCardId = null;
+
+        // --- HỆ THỐNG ÂM THANH (TONE.JS) ---
+        const synth = new Tone.PolySynth(Tone.Synth).toDestination();
+        synth.volume.value = -8;
+
+        function playSound(type) {
+            if (!soundEnabled) return;
+            try {
+                if (Tone.context.state !== 'running') Tone.start();
+                const now = Tone.now();
+                if (type === 'play') {
+                    synth.triggerAttackRelease("C5", "16n", now);
+                    synth.triggerAttackRelease("E5", "16n", now + 0.06);
+                } else if (type === 'draw') {
+                    synth.triggerAttackRelease("G4", "32n", now);
+                } else if (type === 'uno') {
+                    synth.triggerAttackRelease(["C5", "E5", "G5", "C6"], "8n", now);
+                } else if (type === 'catch') {
+                    synth.triggerAttackRelease(["A3", "Eb4"], "4n", now);
+                } else if (type === 'win') {
+                    synth.triggerAttackRelease("C5", "8n", now);
+                    synth.triggerAttackRelease("E5", "8n", now + 0.12);
+                    synth.triggerAttackRelease("G5", "8n", now + 0.24);
+                    synth.triggerAttackRelease("C6", "2n", now + 0.36);
+                } else if (type === 'turn') {
+                    synth.triggerAttackRelease("A5", "32n", now);
+                }
+            } catch (e) {
+                // Bỏ qua lỗi audio nếu trình duyệt chưa tương tác
+            }
+        }
+
+        // --- HIỂN THỊ THÔNG BÁO TOAST ---
+        function showToast(message, type = 'info') {
+            const container = document.getElementById('toast-container');
+            const toast = document.createElement('div');
+            const colors = {
+                info: 'bg-slate-800/95 border-slate-600 text-white',
+                success: 'bg-emerald-600/95 border-emerald-400 text-white',
+                warning: 'bg-amber-500/95 border-amber-300 text-slate-950 font-bold',
+                error: 'bg-rose-600/95 border-rose-400 text-white'
+            };
+            toast.className = `px-4 py-2.5 rounded-2xl border shadow-xl text-xs sm:text-sm text-center backdrop-blur-md transition-all duration-300 transform translate-y-0 ${colors[type] || colors.info}`;
+            toast.textContent = message;
+            container.appendChild(toast);
+
+            setTimeout(() => {
+                toast.style.opacity = '0';
+                toast.style.transform = 'translateY(-10px)';
+                setTimeout(() => toast.remove(), 300);
+            }, 3000);
+        }
+
+        // --- KHỞI TẠO XÁC THỰC FIREBASE ---
+        async function initFirebase() {
+            const authStatusEl = document.getElementById('auth-status');
+            if (!firebaseConfig) {
+                authStatusEl.innerHTML = `<span class="text-rose-400">⚠️ Thiếu cấu hình máy chủ trực tuyến.</span>`;
+                return;
+            }
+            try {
+                app = initializeApp(firebaseConfig);
+                auth = getAuth(app);
+                db = getFirestore(app);
+
+                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                    await signInWithCustomToken(auth, __initial_auth_token);
+                } else {
+                    await signInAnonymously(auth);
+                }
+
+                onAuthStateChanged(auth, (user) => {
+                    if (user) {
+                        currentUser = user;
+                        authStatusEl.className = "flex items-center justify-center gap-2 text-xs text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 rounded-xl py-2 px-3 mb-5";
+                        authStatusEl.innerHTML = `<span class="w-2 h-2 rounded-full bg-emerald-400"></span><span>Đã kết nối máy chủ sẵn sàng!</span>`;
+                        document.getElementById('btn-create-room').disabled = false;
+                        document.getElementById('btn-join-room').disabled = false;
+                    }
+                });
+            } catch (error) {
+                console.error("Lỗi khởi tạo Firebase:", error);
+                authStatusEl.innerHTML = `<span class="text-rose-400">❌ Lỗi kết nối máy chủ. Vui lòng tải lại trang.</span>`;
+            }
+        }
+
+        // --- LOGIC BỘ BÀI UNO 108 LÁ CHUẨN ---
+        function createUnoDeck() {
+            const colors = ['red', 'blue', 'green', 'yellow'];
+            const deck = [];
+            let uid = 1;
+
+            for (const color of colors) {
+                // 1 lá số 0 mỗi màu
+                deck.push({ id: `c_${uid++}`, color, value: '0', type: 'number' });
+
+                // 2 lá mỗi số từ 1-9
+                for (let n = 1; n <= 9; n++) {
+                    deck.push({ id: `c_${uid++}`, color, value: String(n), type: 'number' });
+                    deck.push({ id: `c_${uid++}`, color, value: String(n), type: 'number' });
+                }
+
+                // 2 lá chức năng mỗi loại: Cấm lượt (skip), Đổi chiều (reverse), +2 (draw2)
+                const actions = ['skip', 'reverse', 'draw2'];
+                for (const act of actions) {
+                    deck.push({ id: `c_${uid++}`, color, value: act, type: 'action' });
+                    deck.push({ id: `c_${uid++}`, color, value: act, type: 'action' });
+                }
+            }
+
+            // 4 lá Đổi màu (wild) & 4 lá Đổi màu +4 (wild4)
+            for (let i = 0; i < 4; i++) {
+                deck.push({ id: `c_${uid++}`, color: 'wild', value: 'wild', type: 'wild' });
+                deck.push({ id: `c_${uid++}`, color: 'wild', value: 'wild4', type: 'wild' });
+            }
+
+            return shuffleDeck(deck);
+        }
+
+        function shuffleDeck(array) {
+            const arr = [...array];
+            for (let i = arr.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [arr[i], arr[j]] = [arr[j], arr[i]];
+            }
+            return arr;
+        }
+
+        // Kiểm tra lá bài có hợp lệ để đánh không
+        function isCardPlayable(card, topCard, activeColor) {
+            if (!card || !topCard) return false;
+            if (card.color === 'wild') return true;
+            if (card.color === activeColor) return true;
+            if (card.value === topCard.value) return true;
+            return false;
+        }
+
+        // Hiển thị ký hiệu lá bài đẹp mắt
+        function formatCardSymbol(value) {
+            switch (value) {
+                case 'skip': return '⊘';
+                case 'reverse': return '⇄';
+                case 'draw2': return '+2';
+                case 'wild': return '🌈';
+                case 'wild4': return '+4';
+                default: return value;
+            }
+        }
+
+        function formatCardLabel(card) {
+            const colorNames = { red: 'Đỏ', blue: 'Xanh dương', green: 'Xanh lá', yellow: 'Vàng', wild: 'Đa sắc' };
+            const valNames = {
+                skip: 'Cấm lượt',
+                reverse: 'Đổi chiều',
+                draw2: 'Rút +2',
+                wild: 'Đổi màu',
+                wild4: 'Đổi màu +4'
+            };
+            return `${valNames[card.value] || 'Số ' + card.value} (${colorNames[card.color]})`;
+        }
+
+        function createCardElement(card, size = 'normal', isPlayable = true) {
+            const el = document.createElement('div');
+            const sizeClasses = size === 'small'
+                ? 'w-14 h-20 text-xl'
+                : size === 'discard'
+                    ? 'w-20 h-28 sm:w-24 sm:h-36 text-3xl sm:text-4xl'
+                    : 'w-20 h-28 sm:w-24 sm:h-36 text-3xl sm:text-4xl';
+
+            const colorClass = `card-${card.color}`;
+            const stateClass = size === 'hand'
+                ? (isPlayable ? 'hand-card-playable ring-2 ring-yellow-300/80' : 'hand-card-unplayable')
+                : '';
+
+            el.className = `uno-card ${colorClass} ${sizeClasses} ${stateClass} flex items-center justify-center`;
+            const symbol = formatCardSymbol(card.value);
+
+            el.innerHTML = `
+                <span class="absolute top-1.5 left-2 text-white font-game font-bold text-xs sm:text-sm drop-shadow">${symbol}</span>
+                <div class="uno-card-oval">
+                    <span class="uno-card-inner-text">${symbol}</span>
+                </div>
+                <span class="absolute bottom-1.5 right-2 text-white font-game font-bold text-xs sm:text-sm drop-shadow transform rotate-180">${symbol}</span>
+            `;
+            return el;
+        }
+
+        // --- QUẢN LÝ PHÒNG FIRESTORE (TUÂN THỦ RULE 1, 2, 3) ---
+        function getRoomDocRef(code) {
+            return doc(db, 'artifacts', appId, 'public', 'data', 'uno_rooms', code);
+        }
+
+        function generateRoomCode() {
+            const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+            let code = '';
+            for (let i = 0; i < 6; i++) {
+                code += chars.charAt(Math.floor(Math.random() * chars.length));
+            }
+            return code;
+        }
+
+        function getPlayerName() {
+            let name = document.getElementById('player-name-input').value.trim();
+            if (!name) {
+                const randomNames = ['Sóc Nhanh Nhẹn', 'Cáo Tinh Nghịch', 'Gấu Mũm Mĩm', 'Mèo May Mắn', 'Hổ Dũng Mãnh', 'Thỏ Siêu Tốc'];
+                name = randomNames[Math.floor(Math.random() * randomNames.length)];
+                document.getElementById('player-name-input').value = name;
+            }
+            return name;
+        }
+
+        // Tạo phòng mới
+        async function createRoom() {
+            if (!currentUser) return;
+            const playerName = getPlayerName();
+            const code = generateRoomCode();
+            const roomRef = getRoomDocRef(code);
+
+            const initialRoomData = {
+                roomCode: code,
+                hostId: currentUser.uid,
+                status: 'waiting', // waiting | playing | finished
+                players: [
+                    {
+                        uid: currentUser.uid,
+                        name: playerName,
+                        hand: [],
+                        calledUno: false,
+                        avatarColor: getRandomAvatarColor(0)
+                    }
+                ],
+                deck: [],
+                discardPile: [],
+                activeColor: 'red',
+                currentTurnIndex: 0,
+                direction: 1, // 1: thuận chiều kim đồng hồ, -1: ngược chiều
+                winnerId: null,
+                lastActionText: `${playerName} đã tạo phòng.`,
+                chat: [],
+                latestEmoji: null,
+                updatedAt: Date.now()
+            };
+
+            try {
+                await setDoc(roomRef, initialRoomData);
+                subscribeToRoom(code);
+                showToast(`Đã tạo phòng ${code} thành công!`, 'success');
+            } catch (err) {
+                console.error("Lỗi tạo phòng:", err);
+                showToast('Không thể tạo phòng, vui lòng thử lại!', 'error');
+            }
+        }
+
+        // Tham gia phòng có sẵn
+        async function joinRoom() {
+            if (!currentUser) return;
+            const code = document.getElementById('room-code-input').value.trim().toUpperCase();
+            if (code.length !== 6) {
+                showToast('Vui lòng nhập đúng mã phòng 6 ký tự!', 'warning');
+                return;
+            }
+
+            const playerName = getPlayerName();
+            const roomRef = getRoomDocRef(code);
+
+            try {
+                const snap = await getDoc(roomRef);
+                if (!snap.exists()) {
+                    showToast('Không tìm thấy phòng với mã này!', 'error');
+                    return;
+                }
+
+                const data = snap.data();
+                const existingPlayer = data.players.find(p => p.uid === currentUser.uid);
+
+                if (!existingPlayer) {
+                    if (data.status !== 'waiting') {
+                        showToast('Phòng này đã bắt đầu ván đấu rồi!', 'warning');
+                        return;
+                    }
+                    if (data.players.length >= 6) {
+                        showToast('Phòng đã đủ tối đa 6 người chơi!', 'warning');
+                        return;
+                    }
+
+                    const updatedPlayers = [
+                        ...data.players,
+                        {
+                            uid: currentUser.uid,
+                            name: playerName,
+                            hand: [],
+                            calledUno: false,
+                            avatarColor: getRandomAvatarColor(data.players.length)
+                        }
+                    ];
+
+                    await updateDoc(roomRef, {
+                        players: updatedPlayers,
+                        lastActionText: `${playerName} đã tham gia phòng.`,
+                        updatedAt: Date.now()
+                    });
+                }
+
+                subscribeToRoom(code);
+                showToast(`Đã vào phòng ${code}!`, 'success');
+            } catch (err) {
+                console.error("Lỗi vào phòng:", err);
+                showToast('Lỗi khi tham gia phòng!', 'error');
+            }
+        }
+
+        function getRandomAvatarColor(index) {
+            const palette = [
+                'from-rose-500 to-red-600',
+                'from-blue-500 to-indigo-600',
+                'from-emerald-500 to-green-600',
+                'from-amber-400 to-orange-500',
+                'from-purple-500 to-fuchsia-600',
+                'from-cyan-500 to-teal-600'
+            ];
+            return palette[index % palette.length];
+        }
+
+        // Lắng nghe thay đổi thời gian thực của phòng
+        function subscribeToRoom(code) {
+            if (roomUnsubscribe) roomUnsubscribe();
+            currentRoomCode = code;
+            const roomRef = getRoomDocRef(code);
+
+            roomUnsubscribe = onSnapshot(roomRef, (snap) => {
+                if (!snap.exists()) {
+                    showToast('Phòng chơi đã bị giải tán!', 'warning');
+                    resetToHome();
+                    return;
+                }
+
+                const prevTurnUid = roomState?.players?.[roomState.currentTurnIndex]?.uid;
+                roomState = snap.data();
+
+                // Kiểm tra người chơi còn trong phòng không
+                const amIInRoom = roomState.players.some(p => p.uid === currentUser.uid);
+                if (!amIInRoom) {
+                    resetToHome();
+                    return;
+                }
+
+                const newTurnUid = roomState.players[roomState.currentTurnIndex]?.uid;
+                if (roomState.status === 'playing' && newTurnUid === currentUser.uid && prevTurnUid !== currentUser.uid) {
+                    hasDrawnThisTurn = false;
+                    playSound('turn');
+                }
+
+                renderRoomState();
+            }, (error) => {
+                console.error("Lỗi đồng bộ phòng:", error);
+                showToast('Mất kết nối đồng bộ phòng!', 'error');
+            });
+        }
+
+        // Rời phòng
+        async function leaveRoom() {
+            if (!currentRoomCode || !currentUser || !roomState) {
+                resetToHome();
+                return;
+            }
+
+            const code = currentRoomCode;
+            const roomRef = getRoomDocRef(code);
+
+            try {
+                const remainingPlayers = roomState.players.filter(p => p.uid !== currentUser.uid);
+                if (remainingPlayers.length === 0) {
+                    await deleteDoc(roomRef);
+                } else {
+                    const newHostId = roomState.hostId === currentUser.uid ? remainingPlayers[0].uid : roomState.hostId;
+                    let newTurnIndex = roomState.currentTurnIndex;
+                    if (newTurnIndex >= remainingPlayers.length) {
+                        newTurnIndex = 0;
+                    }
+
+                    // Nếu đang chơi mà chỉ còn 1 người -> kết thúc ván
+                    const newStatus = (roomState.status === 'playing' && remainingPlayers.length < 2) ? 'finished' : roomState.status;
+                    const winnerId = (newStatus === 'finished' && remainingPlayers.length === 1) ? remainingPlayers[0].uid : roomState.winnerId;
+
+                    await updateDoc(roomRef, {
+                        players: remainingPlayers,
+                        hostId: newHostId,
+                        currentTurnIndex: newTurnIndex,
+                        status: newStatus,
+                        winnerId: winnerId,
+                        lastActionText: `Một người chơi đã rời phòng.`,
+                        updatedAt: Date.now()
+                    });
+                }
+            } catch (e) {
+                console.error("Lỗi rời phòng:", e);
+            } finally {
+                resetToHome();
+            }
+        }
+
+        function resetToHome() {
+            if (roomUnsubscribe) {
+                roomUnsubscribe();
+                roomUnsubscribe = null;
+            }
+            currentRoomCode = null;
+            roomState = null;
+            hasDrawnThisTurn = false;
+            lastChatCount = 0;
+            lastTopCardId = null;
+
+            document.getElementById('screen-home').classList.remove('hidden');
+            document.getElementById('screen-waiting').classList.add('hidden');
+            document.getElementById('screen-game').classList.add('hidden');
+            document.getElementById('modal-winner').classList.add('hidden');
+            document.getElementById('modal-color-picker').classList.add('hidden');
+        }
+
+        // --- BẮT ĐẦU GAME (CHIA BÀI) ---
+        async function startGame() {
+            if (!roomState || roomState.hostId !== currentUser.uid) return;
+            if (roomState.players.length < 2) {
+                showToast('Cần tối thiểu 2 người chơi để bắt đầu!', 'warning');
+                return;
+            }
+
+            let deck = createUnoDeck();
+            const players = roomState.players.map(p => {
+                const hand = deck.splice(0, 7);
+                return {
+                    ...p,
+                    hand,
+                    calledUno: false
+                };
+            });
+
+            // Chọn lá bài ngửa đầu tiên (không phải lá Wild +4)
+            let firstCardIndex = deck.findIndex(c => c.type === 'number');
+            if (firstCardIndex === -1) firstCardIndex = 0;
+            const firstCard = deck.splice(firstCardIndex, 1)[0];
+
+            const roomRef = getRoomDocRef(currentRoomCode);
+            try {
+                await updateDoc(roomRef, {
+                    status: 'playing',
+                    players,
+                    deck,
+                    discardPile: [firstCard],
+                    activeColor: firstCard.color,
+                    currentTurnIndex: 0,
+                    direction: 1,
+                    winnerId: null,
+                    lastActionText: `Ván đấu bắt đầu! Lá mở đầu: ${formatCardLabel(firstCard)}`,
+                    updatedAt: Date.now()
+                });
+                playSound('uno');
+            } catch (err) {
+                console.error("Lỗi bắt đầu game:", err);
+                showToast('Không thể bắt đầu ván đấu!', 'error');
+            }
+        }
+
+        // --- RÚT BÀI TỪ CHỒNG BÀI ÚP ---
+        function drawCardsFromDeck(deck, discardPile, count) {
+            let currentDeck = [...deck];
+            let currentDiscard = [...discardPile];
+            const drawn = [];
+
+            for (let i = 0; i < count; i++) {
+                if (currentDeck.length === 0) {
+                    if (currentDiscard.length <= 1) break;
+                    const topCard = currentDiscard.pop();
+                    currentDeck = shuffleDeck(currentDiscard);
+                    currentDiscard = [topCard];
+                }
+                if (currentDeck.length > 0) {
+                    drawn.push(currentDeck.pop());
+                }
+            }
+            return { drawn, deck: currentDeck, discardPile: currentDiscard };
+        }
+
+        // Xử lý người chơi nhấn vào chồng bài rút
+        async function handleDrawCardClick() {
+            if (!roomState || roomState.status !== 'playing') return;
+            const currentPlayer = roomState.players[roomState.currentTurnIndex];
+            if (currentPlayer.uid !== currentUser.uid) {
+                showToast('Chưa tới lượt của bạn!', 'warning');
+                return;
+            }
+            if (hasDrawnThisTurn) {
+                showToast('Bạn đã rút bài trong lượt này rồi! Hãy đánh hoặc qua lượt.', 'info');
+                return;
+            }
+
+            const { drawn, deck, discardPile } = drawCardsFromDeck(roomState.deck, roomState.discardPile, 1);
+            if (drawn.length === 0) {
+                showToast('Hết bài trong bộ bài!', 'warning');
+                return;
+            }
+
+            const drawnCard = drawn[0];
+            const topCard = discardPile[discardPile.length - 1];
+            const canPlayDrawn = isCardPlayable(drawnCard, topCard, roomState.activeColor);
+
+            const updatedPlayers = roomState.players.map((p, idx) => {
+                if (idx === roomState.currentTurnIndex) {
+                    return {
+                        ...p,
+                        hand: [...p.hand, drawnCard],
+                        calledUno: false
+                    };
+                }
+                return p;
+            });
+
+            playSound('draw');
+
+            if (canPlayDrawn) {
+                // Cho phép đánh ngay lá vừa rút hoặc nhấn Qua lượt
+                hasDrawnThisTurn = true;
+                await updateDoc(getRoomDocRef(currentRoomCode), {
+                    players: updatedPlayers,
+                    deck,
+                    discardPile,
+                    lastActionText: `${currentPlayer.name} đã rút 1 lá bài.`,
+                    updatedAt: Date.now()
+                });
+                showToast(`Bạn rút được ${formatCardLabel(drawnCard)} - Có thể đánh ngay!`, 'success');
+            } else {
+                // Không đánh được -> Tự động chuyển lượt sau 0.6s
+                const nextIndex = getNextPlayerIndex(roomState.currentTurnIndex, roomState.direction, updatedPlayers.length);
+                await updateDoc(getRoomDocRef(currentRoomCode), {
+                    players: updatedPlayers,
+                    deck,
+                    discardPile,
+                    currentTurnIndex: nextIndex,
+                    lastActionText: `${currentPlayer.name} rút 1 lá và qua lượt.`,
+                    updatedAt: Date.now()
+                });
+                showToast('Lá vừa rút không khớp, tự động chuyển lượt!', 'info');
+            }
+        }
+
+        // Bỏ qua lượt sau khi đã rút được lá bài hợp lệ nhưng không muốn đánh
+        async function handlePassTurn() {
+            if (!roomState || roomState.status !== 'playing') return;
+            const currentPlayer = roomState.players[roomState.currentTurnIndex];
+            if (currentPlayer.uid !== currentUser.uid || !hasDrawnThisTurn) return;
+
+            hasDrawnThisTurn = false;
+            const nextIndex = getNextPlayerIndex(roomState.currentTurnIndex, roomState.direction, roomState.players.length);
+
+            await updateDoc(getRoomDocRef(currentRoomCode), {
+                currentTurnIndex: nextIndex,
+                lastActionText: `${currentPlayer.name} đã qua lượt.`,
+                updatedAt: Date.now()
+            });
+        }
+
+        function getNextPlayerIndex(currentIndex, direction, totalPlayers) {
+            return (currentIndex + direction + totalPlayers) % totalPlayers;
+        }
+
+        // --- XỬ LÝ ĐÁNH BÀI ---
+        function handlePlayCardClick(cardIndex) {
+            if (!roomState || roomState.status !== 'playing') return;
+            const currentPlayer = roomState.players[roomState.currentTurnIndex];
+            if (currentPlayer.uid !== currentUser.uid) {
+                showToast('Hãy đợi tới lượt của bạn nhé!', 'warning');
+                return;
+            }
+
+            const card = currentPlayer.hand[cardIndex];
+            const topCard = roomState.discardPile[roomState.discardPile.length - 1];
+
+            if (!isCardPlayable(card, topCard, roomState.activeColor)) {
+                showToast('Lá bài này không cùng màu hoặc cùng số/ký hiệu!', 'error');
+                return;
+            }
+
+            // Nếu là lá Đổi màu (wild / wild4), mở bảng chọn màu
+            if (card.color === 'wild') {
+                pendingWildCardIndex = cardIndex;
+                document.getElementById('modal-color-picker').classList.remove('hidden');
+                return;
+            }
+
+            executePlayCard(cardIndex, card.color);
+        }
+
+        async function executePlayCard(cardIndex, chosenColor) {
+            const currentPlayer = roomState.players[roomState.currentTurnIndex];
+            const card = currentPlayer.hand[cardIndex];
+            const newHand = currentPlayer.hand.filter((_, i) => i !== cardIndex);
+
+            let deck = [...roomState.deck];
+            let discardPile = [...roomState.discardPile, card];
+            let direction = roomState.direction;
+            const totalPlayers = roomState.players.length;
+
+            // Cập nhật tay bài người đánh
+            let updatedPlayers = roomState.players.map((p, idx) => {
+                if (idx === roomState.currentTurnIndex) {
+                    return {
+                        ...p,
+                        hand: newHand,
+                        // Giữ nguyên trạng thái calledUno nếu đã bấm trước khi đánh xuống 1 lá
+                        calledUno: newHand.length === 1 ? p.calledUno : false
+                    };
+                }
+                return p;
+            });
+
+            playSound('play');
+            hasDrawnThisTurn = false;
+
+            // Kiểm tra chiến thắng (hết bài)
+            if (newHand.length === 0) {
+                await updateDoc(getRoomDocRef(currentRoomCode), {
+                    players: updatedPlayers,
+                    deck,
+                    discardPile,
+                    activeColor: chosenColor,
+                    status: 'finished',
+                    winnerId: currentPlayer.uid,
+                    lastActionText: `🏆 ${currentPlayer.name} đã đánh hết bài và CHIẾN THẮNG!`,
+                    updatedAt: Date.now()
+                });
+                playSound('win');
+                return;
+            }
+
+            let actionDesc = `${currentPlayer.name} đánh ${formatCardLabel(card)}`;
+            let nextIndex = getNextPlayerIndex(roomState.currentTurnIndex, direction, totalPlayers);
+
+            // Xử lý hiệu ứng lá chức năng
+            if (card.value === 'reverse') {
+                if (totalPlayers === 2) {
+                    // Trong luật 2 người chơi, Đổi chiều tương đương Cấm lượt đối thủ
+                    nextIndex = roomState.currentTurnIndex;
+                    actionDesc += ` (Cấm lượt đối thủ!)`;
+                } else {
+                    direction = direction * -1;
+                    nextIndex = getNextPlayerIndex(roomState.currentTurnIndex, direction, totalPlayers);
+                    actionDesc += ` (Đổi chiều vòng đấu!)`;
+                }
+            } else if (card.value === 'skip') {
+                const skippedPlayer = updatedPlayers[nextIndex];
+                nextIndex = getNextPlayerIndex(nextIndex, direction, totalPlayers);
+                actionDesc += ` (${skippedPlayer.name} bị mất lượt!)`;
+            } else if (card.value === 'draw2') {
+                const victimIndex = nextIndex;
+                const victim = updatedPlayers[victimIndex];
+                const drawRes = drawCardsFromDeck(deck, discardPile, 2);
+                deck = drawRes.deck;
+                discardPile = drawRes.discardPile;
+
+                updatedPlayers[victimIndex] = {
+                    ...victim,
+                    hand: [...victim.hand, ...drawRes.drawn],
+                    calledUno: false
+                };
+                nextIndex = getNextPlayerIndex(victimIndex, direction, totalPlayers);
+                actionDesc += ` (${victim.name} rút +2 lá và mất lượt!)`;
+            } else if (card.value === 'wild4') {
+                const victimIndex = nextIndex;
+                const victim = updatedPlayers[victimIndex];
+                const drawRes = drawCardsFromDeck(deck, discardPile, 4);
+                deck = drawRes.deck;
+                discardPile = drawRes.discardPile;
+
+                updatedPlayers[victimIndex] = {
+                    ...victim,
+                    hand: [...victim.hand, ...drawRes.drawn],
+                    calledUno: false
+                };
+                nextIndex = getNextPlayerIndex(victimIndex, direction, totalPlayers);
+                const colorVi = { red: 'Đỏ', blue: 'Xanh dương', green: 'Xanh lá', yellow: 'Vàng' }[chosenColor];
+                actionDesc += ` (Đổi sang màu ${colorVi}, ${victim.name} rút +4 lá!)`;
+            } else if (card.value === 'wild') {
+                const colorVi = { red: 'Đỏ', blue: 'Xanh dương', green: 'Xanh lá', yellow: 'Vàng' }[chosenColor];
+                actionDesc += ` (Đổi sang màu ${colorVi})`;
+            }
+
+            await updateDoc(getRoomDocRef(currentRoomCode), {
+                players: updatedPlayers,
+                deck,
+                discardPile,
+                activeColor: chosenColor,
+                currentTurnIndex: nextIndex,
+                direction,
+                lastActionText: actionDesc,
+                updatedAt: Date.now()
+            });
+        }
+
+        // --- HÔ UNO & BẮT LỖI UNO ---
+        async function handleCallUno() {
+            if (!roomState || roomState.status !== 'playing') return;
+            const myIndex = roomState.players.findIndex(p => p.uid === currentUser.uid);
+            if (myIndex === -1) return;
+
+            const me = roomState.players[myIndex];
+            if (me.hand.length > 2) return;
+
+            const updatedPlayers = roomState.players.map((p, idx) =>
+                idx === myIndex ? { ...p, calledUno: true } : p
+            );
+
+            playSound('uno');
+            showToast('Bạn đã hô UNO! An toàn rồi 🔥', 'success');
+
+            await updateDoc(getRoomDocRef(currentRoomCode), {
+                players: updatedPlayers,
+                lastActionText: `🔥 ${me.name} đã hô to: "UNO!"`,
+                updatedAt: Date.now()
+            });
+        }
+
+        async function handleCatchUno() {
+            if (!roomState || roomState.status !== 'playing') return;
+            // Tìm đối thủ nào còn đúng 1 lá bài mà chưa hô UNO
+            const targetIndex = roomState.players.findIndex(
+                p => p.uid !== currentUser.uid && p.hand.length === 1 && !p.calledUno
+            );
+
+            if (targetIndex === -1) {
+                showToast('Không có ai quên hô UNO lúc này!', 'info');
+                return;
+            }
+
+            const targetPlayer = roomState.players[targetIndex];
+            const me = roomState.players.find(p => p.uid === currentUser.uid);
+            const drawRes = drawCardsFromDeck(roomState.deck, roomState.discardPile, 2);
+
+            const updatedPlayers = roomState.players.map((p, idx) => {
+                if (idx === targetIndex) {
+                    return {
+                        ...p,
+                        hand: [...p.hand, ...drawRes.drawn],
+                        calledUno: false
+                    };
+                }
+                return p;
+            });
+
+            playSound('catch');
+            showToast(`Bắt quả tang ${targetPlayer.name} quên hô UNO! Phạt +2 lá!`, 'warning');
+
+            await updateDoc(getRoomDocRef(currentRoomCode), {
+                players: updatedPlayers,
+                deck: drawRes.deck,
+                discardPile: drawRes.discardPile,
+                lastActionText: `🚨 ${me.name} bắt lỗi ${targetPlayer.name} quên hô UNO (+2 lá phạt)!`,
+                updatedAt: Date.now()
+            });
+        }
+
+        // --- CHAT & BIỂU CẢM (EMOJI) ---
+        async function sendChatMessage(text) {
+            if (!roomState || !currentRoomCode || !text.trim()) return;
+            const me = roomState.players.find(p => p.uid === currentUser.uid);
+            if (!me) return;
+
+            const newMsg = {
+                id: Date.now() + '_' + Math.random().toString(36).slice(2, 6),
+                senderUid: currentUser.uid,
+                senderName: me.name,
+                text: text.trim().slice(0, 80),
+                time: new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })
+            };
+
+            const existingChat = roomState.chat || [];
+            const trimmedChat = [...existingChat.slice(-29), newMsg];
+
+            await updateDoc(getRoomDocRef(currentRoomCode), {
+                chat: trimmedChat
+            });
+        }
+
+        async function sendFloatingEmoji(emoji) {
+            if (!roomState || !currentRoomCode) return;
+            const me = roomState.players.find(p => p.uid === currentUser.uid);
+            if (!me) return;
+
+            await updateDoc(getRoomDocRef(currentRoomCode), {
+                latestEmoji: {
+                    emoji,
+                    senderName: me.name,
+                    timestamp: Date.now()
+                }
+            });
+        }
+
+        function spawnEmojiAnimation(emoji, senderName) {
+            const overlay = document.getElementById('emoji-overlay');
+            const wrapper = document.createElement('div');
+            const randomLeft = 20 + Math.random() * 60; // 20% -> 80% chiều ngang
+            wrapper.className = 'emoji-float absolute bottom-36 flex flex-col items-center';
+            wrapper.style.left = `${randomLeft}%`;
+            wrapper.innerHTML = `
+                <span class="text-4xl sm:text-5xl drop-shadow-lg">${emoji}</span>
+                <span class="text-[11px] font-bold bg-slate-900/80 text-white px-2 py-0.5 rounded-full border border-slate-700 mt-1">${senderName}</span>
+            `;
+            overlay.appendChild(wrapper);
+            setTimeout(() => wrapper.remove(), 2400);
+        }
+
+        // --- RENDER GIAO DIỆN THEO TRẠNG THÁI PHÒNG ---
+        function renderRoomState() {
+            if (!roomState) return;
+
+            // Hiệu ứng Emoji mới
+            if (roomState.latestEmoji && roomState.latestEmoji.timestamp > lastEmojiTimestamp) {
+                lastEmojiTimestamp = roomState.latestEmoji.timestamp;
+                spawnEmojiAnimation(roomState.latestEmoji.emoji, roomState.latestEmoji.senderName);
+            }
+
+            // Cập nhật Chat
+            renderChat();
+
+            if (roomState.status === 'waiting') {
+                document.getElementById('screen-home').classList.add('hidden');
+                document.getElementById('screen-game').classList.add('hidden');
+                document.getElementById('modal-winner').classList.add('hidden');
+                document.getElementById('screen-waiting').classList.remove('hidden');
+                renderWaitingRoom();
+            } else if (roomState.status === 'playing' || roomState.status === 'finished') {
+                document.getElementById('screen-home').classList.add('hidden');
+                document.getElementById('screen-waiting').classList.add('hidden');
+                document.getElementById('screen-game').classList.remove('hidden');
+                renderGameBoard();
+
+                if (roomState.status === 'finished') {
+                    renderWinnerModal();
+                } else {
+                    document.getElementById('modal-winner').classList.add('hidden');
+                }
+            }
+        }
+
+        function renderWaitingRoom() {
+            document.getElementById('waiting-room-code').textContent = roomState.roomCode;
+            document.getElementById('waiting-player-count').textContent = `${roomState.players.length} / 6 người`;
+
+            const listEl = document.getElementById('waiting-players-list');
+            listEl.innerHTML = '';
+
+            roomState.players.forEach((p) => {
+                const isHost = p.uid === roomState.hostId;
+                const isMe = p.uid === currentUser.uid;
+                const card = document.createElement('div');
+                card.className = `flex items-center justify-between p-3 rounded-2xl border ${isMe ? 'bg-indigo-950/50 border-indigo-500/50' : 'bg-slate-800/80 border-slate-700/80'}`;
+                card.innerHTML = `
+                    <div class="flex items-center gap-2.5 overflow-hidden">
+                        <div class="w-9 h-9 rounded-full bg-gradient-to-br ${p.avatarColor || 'from-blue-500 to-indigo-600'} flex items-center justify-center font-bold text-white text-sm shrink-0">
+                            ${p.name.charAt(0).toUpperCase()}
+                        </div>
+                        <div class="truncate">
+                            <p class="font-bold text-sm text-white truncate">${p.name} ${isMe ? '(Bạn)' : ''}</p>
+                            <p class="text-[11px] text-slate-400">${isHost ? '👑 Chủ phòng' : 'Thành viên'}</p>
+                        </div>
+                    </div>
+                    <span class="w-2.5 h-2.5 rounded-full bg-emerald-400 shrink-0"></span>
+                `;
+                listEl.appendChild(card);
+            });
+
+            const amIHost = roomState.hostId === currentUser.uid;
+            document.getElementById('host-controls').classList.toggle('hidden', !amIHost);
+            document.getElementById('guest-waiting-msg').classList.toggle('hidden', amIHost);
+
+            const startBtn = document.getElementById('btn-start-game');
+            startBtn.disabled = roomState.players.length < 2;
+            startBtn.classList.toggle('opacity-50', roomState.players.length < 2);
+        }
+
+        function renderGameBoard() {
+            document.getElementById('game-room-code').textContent = roomState.roomCode;
+
+            const currentTurnPlayer = roomState.players[roomState.currentTurnIndex];
+            const isMyTurn = currentTurnPlayer && currentTurnPlayer.uid === currentUser.uid;
+
+            // Banner lượt chơi
+            const turnBanner = document.getElementById('turn-banner');
+            const turnText = document.getElementById('turn-banner-text');
+            if (isMyTurn) {
+                turnBanner.className = "px-3.5 py-1.5 rounded-full bg-gradient-to-r from-amber-500 to-orange-500 border border-yellow-200 text-xs sm:text-sm font-extrabold text-slate-950 flex items-center gap-2 shadow-lg animate-pulse";
+                turnText.textContent = "TỚI LƯỢT CỦA BẠN!";
+            } else {
+                turnBanner.className = "px-3.5 py-1.5 rounded-full bg-slate-800 border border-slate-600 text-xs sm:text-sm font-semibold text-slate-200 flex items-center gap-2 shadow-md";
+                turnText.textContent = `Lượt của: ${currentTurnPlayer?.name || '...'}`;
+            }
+
+            // Vòng xoay chiều đánh bài
+            const ring = document.getElementById('direction-ring');
+            const dirLabel = document.getElementById('direction-label');
+            if (roomState.direction === 1) {
+                ring.classList.remove('direction-ccw');
+                ring.classList.add('direction-cw');
+                dirLabel.textContent = '↻ Thuận chiều';
+            } else {
+                ring.classList.remove('direction-cw');
+                ring.classList.add('direction-ccw');
+                dirLabel.textContent = '↺ Ngược chiều';
+            }
+
+            // Màu hiện tại trên bàn
+            const colorPill = document.getElementById('active-color-pill');
+            const colorMap = {
+                red: { text: 'Màu: ĐỎ', bg: 'bg-red-600 text-white' },
+                blue: { text: 'Màu: XANH DƯƠNG', bg: 'bg-blue-600 text-white' },
+                green: { text: 'Màu: XANH LÁ', bg: 'bg-emerald-600 text-white' },
+                yellow: { text: 'Màu: VÀNG', bg: 'bg-yellow-400 text-slate-950' }
+            };
+            const activeStyle = colorMap[roomState.activeColor] || colorMap.red;
+            colorPill.textContent = activeStyle.text;
+            colorPill.className = `absolute -top-3 px-3.5 py-1 rounded-full text-xs font-extrabold uppercase tracking-wider shadow-lg border border-white/50 transition-all duration-300 ${activeStyle.bg}`;
+
+            // Số lá còn lại trong chồng bài rút
+            document.getElementById('deck-count-badge').textContent = roomState.deck.length;
+            const drawHint = document.getElementById('draw-hint-text');
+            drawHint.textContent = isMyTurn && !hasDrawnThisTurn ? '👆 Bấm để rút' : 'Chồng bài rút';
+            drawHint.className = isMyTurn && !hasDrawnThisTurn
+                ? 'text-[11px] font-bold text-yellow-400 mt-1.5 animate-bounce'
+                : 'text-[11px] font-semibold text-slate-400 mt-1.5';
+
+            // Lá bài trên cùng của chồng bài đánh
+            const discardSlot = document.getElementById('discard-pile-slot');
+            const topCard = roomState.discardPile[roomState.discardPile.length - 1];
+            if (topCard && topCard.id !== lastTopCardId) {
+                lastTopCardId = topCard.id;
+                discardSlot.innerHTML = '';
+                const cardEl = createCardElement(topCard, 'discard', true);
+                const randomRot = Math.floor(Math.random() * 16) - 8;
+                cardEl.style.setProperty('--rot', `${randomRot}deg`);
+                cardEl.classList.add('animate-card-drop');
+                discardSlot.appendChild(cardEl);
+            }
+
+            // Render đối thủ xung quanh bàn
+            renderOpponents();
+
+            // Render bài trên tay của mình & các nút UNO
+            renderMyHand(topCard, isMyTurn);
+        }
+
+        function renderOpponents() {
+            const container = document.getElementById('opponents-area');
+            container.innerHTML = '';
+
+            const opponents = roomState.players.filter(p => p.uid !== currentUser.uid);
+            opponents.forEach((opp) => {
+                const isOppTurn = roomState.players[roomState.currentTurnIndex]?.uid === opp.uid;
+                const cardCount = opp.hand ? opp.hand.length : 0;
+                const isDangerUno = cardCount === 1;
+
+                const box = document.createElement('div');
+                box.className = `flex items-center gap-2.5 px-3 py-2 rounded-2xl border transition-all duration-300 ${
+                    isOppTurn
+                        ? 'bg-amber-500/20 border-yellow-400 shadow-lg shadow-amber-500/20 scale-105'
+                        : 'bg-slate-900/80 border-slate-700/80'
+                }`;
+
+                box.innerHTML = `
+                    <div class="relative">
+                        <div class="w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-gradient-to-br ${opp.avatarColor || 'from-blue-500 to-indigo-600'} flex items-center justify-center font-bold text-white text-sm border-2 ${isOppTurn ? 'border-yellow-300' : 'border-white/30'}">
+                            ${opp.name.charAt(0).toUpperCase()}
+                        </div>
+                        ${opp.calledUno && cardCount === 1 ? `<span class="absolute -bottom-1 -right-1 bg-red-600 text-yellow-300 font-game text-[9px] font-bold px-1.5 rounded-full border border-white">UNO!</span>` : ''}
+                    </div>
+                    <div>
+                        <p class="text-xs sm:text-sm font-bold text-white max-w-[95px] truncate">${opp.name}</p>
+                        <div class="flex items-center gap-1.5 mt-0.5">
+                            <span class="inline-flex items-center justify-center px-2 py-0.5 rounded-md text-[11px] font-extrabold ${
+                                isDangerUno ? 'bg-rose-600 text-white animate-pulse' : 'bg-slate-800 text-slate-300 border border-slate-600'
+                            }">
+                                🃏 ${cardCount} lá
+                            </span>
+                            ${isOppTurn ? `<span class="text-[10px] text-yellow-300 font-semibold">Đang nghĩ...</span>` : ''}
+                        </div>
+                    </div>
+                `;
+                container.appendChild(box);
+            });
+        }
+
+        function renderMyHand(topCard, isMyTurn) {
+            const handContainer = document.getElementById('my-hand-container');
+            handContainer.innerHTML = '';
+
+            const me = roomState.players.find(p => p.uid === currentUser.uid);
+            if (!me) return;
+
+            const myHand = me.hand || [];
+            // Tính độ chồng lấn lá bài tự động dựa trên số lượng bài
+            const overlapMargin = myHand.length > 10 ? '-ml-9 sm:-ml-10' : myHand.length > 6 ? '-ml-6 sm:-ml-7' : '-ml-3 sm:-ml-4';
+
+            myHand.forEach((card, index) => {
+                const playable = isMyTurn && isCardPlayable(card, topCard, roomState.activeColor);
+                const cardEl = createCardElement(card, 'hand', playable);
+
+                if (index > 0) {
+                    cardEl.classList.add(...overlapMargin.split(' '));
+                }
+                cardEl.style.zIndex = index + 1;
+
+                if (playable) {
+                    cardEl.addEventListener('click', () => handlePlayCardClick(index));
+                }
+
+                handContainer.appendChild(cardEl);
+            });
+
+            // Điều khiển hiển thị nút Hô UNO! (khi còn 1 hoặc 2 lá và chưa hô)
+            const btnCallUno = document.getElementById('btn-call-uno');
+            const showCallUno = (myHand.length === 1 || (myHand.length === 2 && isMyTurn)) && !me.calledUno;
+            btnCallUno.classList.toggle('hidden', !showCallUno);
+
+            // Điều khiển hiển thị nút Bắt lỗi UNO! (khi có đối thủ còn 1 lá mà chưa hô UNO)
+            const someoneForgotUno = roomState.players.some(
+                p => p.uid !== currentUser.uid && p.hand && p.hand.length === 1 && !p.calledUno
+            );
+            document.getElementById('btn-catch-uno').classList.toggle('hidden', !someoneForgotUno);
+
+            // Điều khiển nút Qua lượt (sau khi đã rút 1 lá hợp lệ)
+            const btnPass = document.getElementById('btn-pass-turn');
+            btnPass.classList.toggle('hidden', !(isMyTurn && hasDrawnThisTurn));
+        }
+
+        function renderChat() {
+            const messages = roomState.chat || [];
+            const chatBox = document.getElementById('chat-messages');
+            const drawer = document.getElementById('chat-drawer');
+            const badge = document.getElementById('chat-unread-badge');
+
+            if (messages.length > lastChatCount) {
+                if (drawer.classList.contains('translate-x-full') && lastChatCount > 0) {
+                    badge.classList.remove('hidden');
+                }
+                lastChatCount = messages.length;
+            }
+
+            chatBox.innerHTML = '';
+            if (messages.length === 0) {
+                chatBox.innerHTML = `<p class="text-center text-xs text-slate-500 py-6">Chưa có tin nhắn nào. Hãy gửi lời chào tới mọi người!</p>`;
+                return;
+            }
+
+            messages.forEach(msg => {
+                const isMe = msg.senderUid === currentUser.uid;
+                const item = document.createElement('div');
+                item.className = `flex flex-col ${isMe ? 'items-end' : 'items-start'}`;
+                item.innerHTML = `
+                    <span class="text-[10px] text-slate-400 mb-0.5 px-1">${isMe ? 'Bạn' : msg.senderName} • ${msg.time}</span>
+                    <div class="px-3 py-2 rounded-2xl max-w-[85%] break-words text-xs sm:text-sm ${
+                        isMe ? 'bg-indigo-600 text-white rounded-br-sm' : 'bg-slate-800 text-slate-100 border border-slate-700 rounded-bl-sm'
+                    }">
+                        ${escapeHtml(msg.text)}
+                    </div>
+                `;
+                chatBox.appendChild(item);
+            });
+            chatBox.scrollTop = chatBox.scrollHeight;
+        }
+
+        function escapeHtml(str) {
+            const div = document.createElement('div');
+            div.textContent = str;
+            return div.innerHTML;
+        }
+
+        function renderWinnerModal() {
+            const modal = document.getElementById('modal-winner');
+            modal.classList.remove('hidden');
+
+            const winner = roomState.players.find(p => p.uid === roomState.winnerId) || roomState.players[0];
+            document.getElementById('winner-name-display').textContent = winner ? winner.name : 'Nhà Vô Địch';
+
+            const scoreboard = document.getElementById('winner-scoreboard');
+            scoreboard.innerHTML = '';
+
+            // Sắp xếp theo số lá bài còn lại ít nhất
+            const sortedPlayers = [...roomState.players].sort((a, b) => (a.hand?.length || 0) - (b.hand?.length || 0));
+            sortedPlayers.forEach((p, idx) => {
+                const row = document.createElement('div');
+                row.className = 'flex items-center justify-between text-xs sm:text-sm py-1.5 px-2.5 rounded-xl bg-slate-900/80';
+                row.innerHTML = `
+                    <span class="font-bold text-white">${idx === 0 ? '🥇' : idx === 1 ? '🥈' : '🥉'} ${p.name}</span>
+                    <span class="text-slate-300 font-semibold">${p.hand?.length || 0} lá còn lại</span>
+                `;
+                scoreboard.appendChild(row);
+            });
+
+            const playAgainBtn = document.getElementById('btn-play-again');
+            if (roomState.hostId === currentUser.uid) {
+                playAgainBtn.classList.remove('hidden');
+            } else {
+                playAgainBtn.classList.add('hidden');
+            }
+        }
+
+        // --- SAO CHÉP MÃ PHÒNG (SỬ DỤNG execCommand ĐỂ TƯƠNG THÍCH IFRAME) ---
+        function copyRoomCodeToClipboard() {
+            if (!currentRoomCode) return;
+            const tempInput = document.createElement('input');
+            tempInput.value = currentRoomCode;
+            document.body.appendChild(tempInput);
+            tempInput.select();
+            try {
+                document.execCommand('copy');
+                showToast(`Đã sao chép mã phòng: ${currentRoomCode}`, 'success');
+            } catch (err) {
+                showToast(`Mã phòng của bạn là: ${currentRoomCode}`, 'info');
+            }
+            document.body.removeChild(tempInput);
+        }
+
+        // --- GẮN SỰ KIỆN GIAO DIỆN ---
+        window.addEventListener('DOMContentLoaded', () => {
+            initFirebase();
+
+            // Tên ngẫu nhiên
+            document.getElementById('btn-random-name').addEventListener('click', () => {
+                const names = ['Sóc Tia Chớp', 'Cáo Thông Minh', 'Gấu Panda', 'Mèo Thần Tài', 'Rồng Lửa', 'Cánh Cụt Vui Vẻ', 'Hổ Vằn'];
+                document.getElementById('player-name-input').value = names[Math.floor(Math.random() * names.length)];
+            });
+
+            // Tạo & Vào phòng
+            document.getElementById('btn-create-room').addEventListener('click', createRoom);
+            document.getElementById('btn-join-room').addEventListener('click', joinRoom);
+            document.getElementById('room-code-input').addEventListener('keyup', (e) => {
+                if (e.key === 'Enter') joinRoom();
+            });
+
+            // Sao chép mã phòng & Rời phòng
+            document.getElementById('btn-copy-code').addEventListener('click', copyRoomCodeToClipboard);
+            document.getElementById('btn-game-copy').addEventListener('click', copyRoomCodeToClipboard);
+            document.getElementById('btn-leave-waiting').addEventListener('click', leaveRoom);
+            document.getElementById('btn-leave-game').addEventListener('click', leaveRoom);
+            document.getElementById('btn-winner-leave').addEventListener('click', leaveRoom);
+
+            // Bắt đầu game & Chơi lại
+            document.getElementById('btn-start-game').addEventListener('click', startGame);
+            document.getElementById('btn-play-again').addEventListener('click', startGame);
+
+            // Rút bài & Qua lượt
+            document.getElementById('draw-pile-btn').addEventListener('click', handleDrawCardClick);
+            document.getElementById('btn-pass-turn').addEventListener('click', handlePassTurn);
+
+            // Hô UNO & Bắt lỗi UNO
+            document.getElementById('btn-call-uno').addEventListener('click', handleCallUno);
+            document.getElementById('btn-catch-uno').addEventListener('click', handleCatchUno);
+
+            // Chọn màu khi đánh Wild / +4
+            document.querySelectorAll('.color-pick-btn').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const color = btn.getAttribute('data-pick-color');
+                    document.getElementById('modal-color-picker').classList.add('hidden');
+                    if (pendingWildCardIndex !== null) {
+                        const idx = pendingWildCardIndex;
+                        pendingWildCardIndex = null;
+                        executePlayCard(idx, color);
+                    }
+                });
+            });
+
+            // Âm thanh
+            document.getElementById('btn-toggle-sound').addEventListener('click', (e) => {
+                soundEnabled = !soundEnabled;
+                e.currentTarget.textContent = soundEnabled ? '🔊' : '🔇';
+                showToast(soundEnabled ? 'Đã bật âm thanh' : 'Đã tắt âm thanh', 'info');
+            });
+
+            // Khung Chat
+            const chatDrawer = document.getElementById('chat-drawer');
+            document.getElementById('btn-toggle-chat').addEventListener('click', () => {
+                chatDrawer.classList.toggle('translate-x-full');
+                document.getElementById('chat-unread-badge').classList.add('hidden');
+            });
+            document.getElementById('btn-close-chat').addEventListener('click', () => {
+                chatDrawer.classList.add('translate-x-full');
+            });
+
+            document.getElementById('chat-form').addEventListener('submit', (e) => {
+                e.preventDefault();
+                const input = document.getElementById('chat-input');
+                if (input.value.trim()) {
+                    sendChatMessage(input.value);
+                    input.value = '';
+                }
+            });
+
+            document.querySelectorAll('.quick-chat-btn').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    sendChatMessage(btn.textContent);
+                });
+            });
+
+            // Thả biểu cảm Emoji
+            document.querySelectorAll('.emoji-trigger').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const emoji = btn.getAttribute('data-emoji');
+                    sendFloatingEmoji(emoji);
+                });
+            });
+
+            // Modal Luật chơi
+            const rulesModal = document.getElementById('modal-rules');
+            document.getElementById('btn-open-rules').addEventListener('click', () => rulesModal.classList.remove('hidden'));
+            document.getElementById('btn-close-rules').addEventListener('click', () => rulesModal.classList.add('hidden'));
+            document.getElementById('btn-got-it-rules').addEventListener('click', () => rulesModal.classList.add('hidden'));
+        });
+    </script>
+</body>
+</html>
